@@ -4,7 +4,7 @@ The goal of the assignment is to implement the **Bakery Algorithm**.
 
 ## Usage
 
-The program is used by running the `main` function. Number of threads the process will run on can by changed by
+The program is used by running the `main` function. Number of threads the process will run on, can by changed by
 modifying the *N_THREADS* constant.
 
 ## Implementation
@@ -21,7 +21,7 @@ The implementation uses 2 global variables:
 
 ### Function `main`
 
-In the `main` function we create **N** threads and each thread the `process` function. The implementation of a thread
+In the `main` function we create **N** threads and each runs the `process` function. The implementation of a thread
 is taken from the **fei.ppds** library.
 
 ### Function `process`
@@ -53,7 +53,7 @@ thread at a time has access.
 ***Unlock:*** Unlock the thread by setting its turn number to 0. 
 
 ### Mutual exclusion
-Mutual exclusion is used to prevent **race conditions**. In principle it disallows multiple **threads** to enter the
+Mutual exclusion is used to prevent **race conditions**. In principle, it disallows multiple **threads** to enter the
 **critical section** at the same time.
 
 Bakery algorithm is a viable solution to this problem. Here's why:
@@ -62,8 +62,8 @@ Bakery algorithm is a viable solution to this problem. Here's why:
 
     This is achieved by the usage of turn numbers, which increase with each incoming process. Only the process
     with the lowest non-zero turn number can enter the critical section. Other processes wait for their turn, until
-    their turn number is the lowest. After a process exits the critical section, its unlocked by setting its turn
-    number to 0, and now the second lowest non-zero number is free to enter the critical section.
+    their turn number becomes the lowest. After a process exits out of the critical section, it is unlocked by setting its turn
+    number to 0, and now the process with the second lowest non-zero number is free to enter the critical section.
 
 2. **Process running outside of the critical section doesn't prevent other processes to enter it.**
 
@@ -77,9 +77,7 @@ Bakery algorithm is a viable solution to this problem. Here's why:
 
 4. **When entering the critical section, processes can't assume anything about mutual timing / planning.**
     
-    A process doesn't assume anything of this sort, because its entrance is predetermined by its turn number.
-    
-
+    A process doesn't assume anything of this sort, because its entrance is predetermined only by its turn number.
 
 ## References
 <a id="1">[1] 
