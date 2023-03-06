@@ -120,6 +120,7 @@ def customer(i, shared):
                 f'{Format.underline}entered{Format.end} the waiting room')
         shared.mutex.unlock()
 
+        shared.mutex.lock()
         # Rendezvous: wake up barber
         shared.barber.signal()
         shared.customer.wait()
@@ -129,6 +130,7 @@ def customer(i, shared):
         # Rendezvous: wait for barber to finish and also finish
         shared.barber_done.wait()
         shared.customer_done.signal()
+        shared.mutex.unlock()
 
         # Leave waiting room
         shared.mutex.lock()
