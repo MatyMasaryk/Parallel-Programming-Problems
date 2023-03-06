@@ -61,7 +61,7 @@ In the end, customer calls function `growing hair` and then repeats the whole pr
 
 ### Function `barber`
 
-Function `customer` implements behavior of a barber running the barber shop.
+Function `barber` implements behavior of a barber running the barber shop.
 
 #### Parameters:
 
