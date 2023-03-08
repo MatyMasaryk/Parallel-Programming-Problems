@@ -4,12 +4,15 @@ __author__ = "Maty Masaryk, Tomáš Vavro"
 __email__ = "xmasarykm1@stuba.sk"
 __license__ = "MIT"
 
-from fei.ppds import Thread, Mutex, print
+from fei.ppds import Thread, Mutex, Semaphore, print
 from time import sleep
+from random import randint
 
-VARIANT: int = 1  # 0: waiter // 1: leftie // 2: token
+VARIANT: int = 0  # 0: waiter // 1: leftie // 2: token
 NUM_PHILOSOPHERS: int = 5
 NUM_RUNS: int = 4  # number of repetitions of think-eat cycle of philosophers
+
+leftie: int = randint(0, NUM_PHILOSOPHERS - 1)
 
 
 class Shared:
@@ -18,7 +21,7 @@ class Shared:
     def __init__(self):
         """Initialize an instance of Shared."""
         self.forks = [Mutex() for _ in range(NUM_PHILOSOPHERS)]
-        self.waiter = Mutex()
+        self.waiter = Semaphore(4)
 
 
 def think(i: int):
@@ -27,8 +30,8 @@ def think(i: int):
     Args:
         i -- philosopher's id
     """
-    print(f"Philosopher {i} is thinking!")
-    sleep(0.1)
+    print(f"🧠 Philosopher {i} is thinking!\n")
+    sleep(randint(1, 10) * 0.1)
 
 
 def eat(i: int):
@@ -37,8 +40,14 @@ def eat(i: int):
     Args:
         i -- philosopher's id
     """
-    print(f"Philosopher {i} is eating!")
-    sleep(0.1)
+    print(f"🍴 Philosopher {i} is eating!\n")
+    sleep(randint(1, 10) * 0.1)
+
+
+def take_return(i: int, right: bool, take: bool):
+    print(f"{'➜' if take else '↩'} Philosopher {i} "
+          f"{'took' if take else 'returned'} "
+          f"{'right' if right else 'left'} fork.")
 
 
 def philosopher_waiter(i: int, shared: Shared):
@@ -49,15 +58,19 @@ def philosopher_waiter(i: int, shared: Shared):
         shared -- shared data
     """
     for _ in range(NUM_RUNS):
-        shared.waiter.lock()
+        shared.waiter.wait()
         think(i)
         # get forks
         shared.forks[i].lock()
+        take_return(i, True, True)
         shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
+        take_return(i, False, True)
         eat(i)
         shared.forks[i].unlock()
+        take_return(i, True, False)
         shared.forks[(i + 1) % NUM_PHILOSOPHERS].unlock()
-        shared.waiter.unlock()
+        take_return(i, False, False)
+        shared.waiter.signal()
 
 
 def philosopher_leftie(i: int, shared: Shared):
@@ -67,22 +80,30 @@ def philosopher_leftie(i: int, shared: Shared):
         i -- philosopher's id
         shared -- shared data
     """
+    global leftie
     for _ in range(NUM_RUNS):
         think(i)
-        # get forks
-        if i == 0:
+        if i == leftie:
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
+            take_return(i, False, True)
             shared.forks[i].lock()
+            take_return(i, True, True)
         else:
             shared.forks[i].lock()
+            take_return(i, True, True)
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
+            take_return(i, False, True)
         eat(i)
-        if i == 0:
+        if i == leftie:
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].unlock()
+            take_return(i, False, False)
             shared.forks[i].unlock()
+            take_return(i, True, False)
         else:
             shared.forks[i].unlock()
+            take_return(i, True, False)
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].unlock()
+            take_return(i, False, False)
 
 
 def philosopher_token(i: int, shared: Shared):
@@ -99,10 +120,17 @@ def main():
     """Run main."""
     shared: Shared = Shared()
     if VARIANT == 0:
+        print(f'\n----------------------------------------\n'
+              f'Starting, with a WAITER.'
+              f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
             Thread(philosopher_waiter, i, shared) for i in range(NUM_PHILOSOPHERS)
         ]
     elif VARIANT == 1:
+        global leftie
+        print(f'----------------------------------------\n'
+              f'Starting, with LEFT HANDED philosopher {leftie}.'
+              f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
             Thread(philosopher_leftie, i, shared) for i in range(NUM_PHILOSOPHERS)
         ]
