@@ -8,7 +8,7 @@ from fei.ppds import Thread, Mutex, Semaphore, print
 from time import sleep
 from random import randint
 
-VARIANT: int = 0  # 0: waiter // 1: leftie // 2: token
+VARIANT: int = 2  # 0: waiter // 1: leftie // 2: token
 NUM_PHILOSOPHERS: int = 5
 NUM_RUNS: int = 4  # number of repetitions of think-eat cycle of philosophers
 
@@ -21,7 +21,9 @@ class Shared:
     def __init__(self):
         """Initialize an instance of Shared."""
         self.forks = [Mutex() for _ in range(NUM_PHILOSOPHERS)]
-        self.waiter = Semaphore(4)
+        self.waiter = Semaphore(NUM_PHILOSOPHERS - 1)
+        self.mutex = Mutex()
+        self.eating = [False for _ in range(NUM_PHILOSOPHERS)]
 
 
 def think(i: int):
@@ -48,6 +50,16 @@ def take_return(i: int, right: bool, take: bool):
     print(f"{'➜' if take else '↩'} Philosopher {i} "
           f"{'took' if take else 'returned'} "
           f"{'right' if right else 'left'} fork.")
+
+
+def balk(i):
+    """
+    Represents situation when neighbor is eating.
+    Parameters:
+        i -- philosopher's id, integer
+    """
+    print(f'✖ Philosopher {i} can\'t eat now.')
+    sleep(randint(10, 30) * 0.1)
 
 
 def philosopher_waiter(i: int, shared: Shared):
@@ -113,7 +125,30 @@ def philosopher_token(i: int, shared: Shared):
         i -- philosopher's id
         shared -- shared data
     """
-    # TODO: token
+    for _ in range(NUM_RUNS):
+        think(i)
+
+        while shared.eating[(NUM_PHILOSOPHERS + i - 1) % NUM_PHILOSOPHERS] \
+                or shared.eating[(i + 1) % NUM_PHILOSOPHERS]:
+            balk(i)
+
+        shared.mutex.lock()
+        shared.eating[i] = True
+        shared.mutex.unlock()
+
+        shared.forks[i].lock()
+        take_return(i, True, True)
+        shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
+        take_return(i, False, True)
+        eat(i)
+        shared.forks[i].unlock()
+        take_return(i, True, False)
+        shared.forks[(i + 1) % NUM_PHILOSOPHERS].unlock()
+        take_return(i, False, False)
+
+        shared.mutex.lock()
+        shared.eating[i] = False
+        shared.mutex.unlock()
 
 
 def main():
@@ -135,6 +170,9 @@ def main():
             Thread(philosopher_leftie, i, shared) for i in range(NUM_PHILOSOPHERS)
         ]
     else:
+        print(f'----------------------------------------\n'
+              f'Starting, with TOKEN.'
+              f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
             Thread(philosopher_token, i, shared) for i in range(NUM_PHILOSOPHERS)
         ]
