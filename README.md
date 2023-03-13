@@ -126,3 +126,16 @@ Prints max hunger of philosophers at the end of experiment.
 ![leftie](https://github.com/MatyMasaryk/Masaryk_103043_feippds/blob/03/images/leftie.png)
 ![token](https://github.com/MatyMasaryk/Masaryk_103043_feippds/blob/03/images/token.png)
 
+We tried running all 3 variants with 1000 runs. We established that both leftie and token are better variants
+than waiter, because they significantly lower the hunger of philosophers.
+
+In the *waiter variant* the last philosopher (who doesn't eat) is heavily disadvantaged by the **planner**. What often
+happens is that last philosopher would finish waiting, but other philosopher already occupies the waiter again.
+This could be mitigated a bit by making each philosopher sleep after calling *signal()* for the waiter.
+
+In the *leftie variant* we see a big jump in effectivity. This is because no one is waiting for a waiter, everyone waits
+**only** when their fork is locked.
+
+In the *token variant* we see another improvement. This is due to the fact, that at each moment, 2
+philosophers are **allowed** to eat, because neighbors of eating philosophers are locked and and therefore, no one is
+taking each other's forks. This improves effectiveness and balance significantly.
