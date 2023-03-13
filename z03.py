@@ -11,6 +11,7 @@ from random import randint
 VARIANT: int = 2  # 0: waiter // 1: leftie // 2: token
 NUM_PHILOSOPHERS: int = 5
 NUM_RUNS: int = 4  # number of repetitions of think-eat cycle of philosophers
+SLEEP_CONSTANT: float = 0.1
 
 leftie: int = randint(0, NUM_PHILOSOPHERS - 1)
 
@@ -24,6 +25,8 @@ class Shared:
         self.waiter = Semaphore(NUM_PHILOSOPHERS - 1)
         self.mutex = Mutex()
         self.eating = [False for _ in range(NUM_PHILOSOPHERS)]
+        self.hunger = [0 for _ in range(NUM_PHILOSOPHERS)]
+        self.maxHunger = [-1 for _ in range(NUM_PHILOSOPHERS)]
 
 
 def think(i: int):
@@ -33,7 +36,7 @@ def think(i: int):
         i -- philosopher's id
     """
     print(f"🧠 Philosopher {i} is thinking!\n")
-    sleep(randint(1, 10) * 0.1)
+    sleep(randint(1, 10) * SLEEP_CONSTANT)
 
 
 def eat(i: int):
@@ -43,10 +46,18 @@ def eat(i: int):
         i -- philosopher's id
     """
     print(f"🍴 Philosopher {i} is eating!\n")
-    sleep(randint(1, 10) * 0.1)
+    sleep(randint(1, 10) * SLEEP_CONSTANT)
 
 
 def take_return(i: int, right: bool, take: bool):
+    """
+    Print info when philosopher is taking or returning a fork.
+
+    Parameters:
+        i -- philosopher's id, integer
+        right -- true: right fork, false: left fork, boolean
+        take -- true: take fork, false: return fork, boolean
+    """
     print(f"{'➜' if take else '↩'} Philosopher {i} "
           f"{'took' if take else 'returned'} "
           f"{'right' if right else 'left'} fork.")
@@ -55,19 +66,71 @@ def take_return(i: int, right: bool, take: bool):
 def balk(i):
     """
     Represents situation when neighbor is eating.
+
     Parameters:
         i -- philosopher's id, integer
     """
     print(f'✖ Philosopher {i} can\'t eat now.')
-    sleep(randint(10, 30) * 0.1)
+    sleep(randint(10, 30) * SLEEP_CONSTANT)
+
+
+def calc_hunger(i, shared: Shared):
+    """
+    Calculates hunger and max hunger of philosopher.
+
+    Parameters:
+        i -- philosopher's id, integer
+        shared -- shared data, class Shared
+    """
+    shared.mutex.lock()
+    shared.hunger[i] = 0
+    for j in range(NUM_PHILOSOPHERS):
+        if j != i:
+            shared.hunger[j] += 1
+            if shared.hunger[j] > shared.maxHunger[j]:
+                shared.maxHunger[j] = shared.hunger[j]
+
+    for j in range(NUM_PHILOSOPHERS):
+        if shared.hunger[j] > shared.maxHunger[j]:
+            shared.maxHunger[j] = shared.hunger[j]
+    shared.mutex.unlock()
+
+
+def print_hunger(shared: Shared):
+    """
+    Prints hunger of philosophers at the end of experiment.
+
+    Parameters:
+        i -- philosopher's id, integer
+        shared -- shared data, class Shared
+    """
+    variant: str
+    if VARIANT == 0:
+        variant = "Waiter"
+    elif VARIANT == 1:
+        variant = "Leftie"
+    else:
+        variant = "Pseudo-Token"
+    print(f'\n----------------------------------------\n'
+          f'VARIANT: {variant}\n'
+          f'NUMBER OF RUNS: {NUM_RUNS}\n'
+          f'S----------------------------------------')
+
+    for i in range(NUM_PHILOSOPHERS):
+        print(f'Philosopher {i}: max hunger = {shared.maxHunger[i]}')
+
+    print(f'----------------------------------------\n'
+          f'HIGHEST HUNGER: {max(shared.maxHunger)}\n'
+          f'LOWEST HUNGER: {min(shared.maxHunger)}\n'
+          f'----------------------------------------')
 
 
 def philosopher_waiter(i: int, shared: Shared):
     """Run philosopher's code, with a waiter.
 
     Args:
-        i -- philosopher's id
-        shared -- shared data
+        i -- philosopher's id, integer
+        shared -- shared data, class Shared
     """
     for _ in range(NUM_RUNS):
         shared.waiter.wait()
@@ -77,6 +140,7 @@ def philosopher_waiter(i: int, shared: Shared):
         take_return(i, True, True)
         shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
         take_return(i, False, True)
+        calc_hunger(i, shared)
         eat(i)
         shared.forks[i].unlock()
         take_return(i, True, False)
@@ -89,8 +153,8 @@ def philosopher_leftie(i: int, shared: Shared):
     """Run philosopher's code, with a leftie.
 
     Args:
-        i -- philosopher's id
-        shared -- shared data
+        i -- philosopher's id, integer
+        shared -- shared data, class Shared
     """
     global leftie
     for _ in range(NUM_RUNS):
@@ -105,6 +169,7 @@ def philosopher_leftie(i: int, shared: Shared):
             take_return(i, True, True)
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
             take_return(i, False, True)
+        calc_hunger(i, shared)
         eat(i)
         if i == leftie:
             shared.forks[(i + 1) % NUM_PHILOSOPHERS].unlock()
@@ -122,8 +187,8 @@ def philosopher_token(i: int, shared: Shared):
     """Run philosopher's code, using token .
 
     Args:
-        i -- philosopher's id
-        shared -- shared data
+        i -- philosopher's id, integer
+        shared -- shared data, class Shared
     """
     for _ in range(NUM_RUNS):
         think(i)
@@ -140,6 +205,7 @@ def philosopher_token(i: int, shared: Shared):
         take_return(i, True, True)
         shared.forks[(i + 1) % NUM_PHILOSOPHERS].lock()
         take_return(i, False, True)
+        calc_hunger(i, shared)
         eat(i)
         shared.forks[i].unlock()
         take_return(i, True, False)
@@ -179,6 +245,8 @@ def main():
 
     for p in philosophers:
         p.join()
+
+    print_hunger(shared)
 
 
 if __name__ == "__main__":
