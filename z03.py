@@ -225,7 +225,8 @@ def main():
               f'Starting, with a WAITER.'
               f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
-            Thread(philosopher_waiter, i, shared) for i in range(NUM_PHILOSOPHERS)
+            Thread(philosopher_waiter, i, shared) for i
+            in range(NUM_PHILOSOPHERS)
         ]
     elif VARIANT == 1:
         global leftie
@@ -233,14 +234,16 @@ def main():
               f'Starting, with LEFT HANDED philosopher {leftie}.'
               f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
-            Thread(philosopher_leftie, i, shared) for i in range(NUM_PHILOSOPHERS)
+            Thread(philosopher_leftie, i, shared) for i
+            in range(NUM_PHILOSOPHERS)
         ]
     else:
         print(f'----------------------------------------\n'
               f'Starting, with TOKEN.'
               f'\n----------------------------------------\n')
         philosophers: list[Thread] = [
-            Thread(philosopher_token, i, shared) for i in range(NUM_PHILOSOPHERS)
+            Thread(philosopher_token, i, shared) for i
+            in range(NUM_PHILOSOPHERS)
         ]
 
     for p in philosophers:
