@@ -11,15 +11,14 @@ from random import randint
 POT_CAPACITY = 5
 NUM_SAVAGES = 4
 NUM_COOKS = 3
+SLEEP_CONSTANT: float = 0.1
 
 
 class Shared:
-    """Represents shared data for all threads."""
-
+    """Represents shared data between threads."""
     def __init__(self):
         """Initialize an instance of Shared."""
         self.savage_mutex = Mutex()
-        self.pot_mutex = Mutex()
         self.cook_mutex = Mutex()
         self.servings = 0
         self.fullPot = Semaphore(0)
@@ -28,15 +27,21 @@ class Shared:
 
 
 class Barrier:
-    """Represents shared data for all threads."""
-
+    """Represents a reusable barrier synchronization pattern."""
     def __init__(self):
+        """Initialize an instance of Barrier."""
         self.mutex = Mutex()
         self.count = 0
         self.turnstile1 = Semaphore(0)
         self.turnstile2 = Semaphore(0)
 
-    def wait1(self, i):
+    def wait1(self, i: int):
+        """
+        Use barrier to wait for all savages.
+
+        Parameters:
+            i -- savage id, integer
+        """
         self.mutex.lock()
         self.count += 1
         if self.count == NUM_SAVAGES:
@@ -45,76 +50,137 @@ class Barrier:
         self.turnstile1.wait()
         print(f'➜ Savage {i}: arrived to the feast')
 
-    def wait2(self, i):
+    def wait2(self, i: int):
+        """
+        Prepare barrier for future use.
+
+        Parameters:
+            i -- savage id, integer
+        """
         self.mutex.lock()
         self.count -= 1
         if self.count == 0:
-            print(f'✔ Savage {i}: is the last one, feast can start\n')
+            print(f'✔ Savage {i}: everyone is ready, feast can start\n')
             self.turnstile2.signal(NUM_SAVAGES)
         self.mutex.unlock()
         self.turnstile2.wait()
 
 
 def get_serving_from_pot(i: int, shared: Shared):
-    shared.pot_mutex.lock()
-    print(f'🍴 Savage {i}: takes a portion')
-    sleep(0.1)
+    """
+    Simulate savage taking a serving from the pot.
+
+    Parameters:
+        i -- savage id, integer
+        shared -- shared data, class Shared
+    """
+    print(f'🍴 Savage {i}: takes a serving')
+    sleep(randint(1, 3) * SLEEP_CONSTANT)
     shared.servings -= 1
-    shared.pot_mutex.unlock()
 
 
-def feast(i: int, shared: Shared):
+def feast(i: int):
+    """
+    Simulate savage feasting.
+
+    Parameters:
+        i -- savage id, integer
+    """
     print(f'🍴 Savage {i}: is feasting')
-    sleep(1)
+    sleep(randint(5, 25) * SLEEP_CONSTANT)
 
 
 def put_serving_in_pot(i: int, shared: Shared):
-    sleep(0.1)
+    """
+    Simulate cook preparing a serving and putting it in the pot.
+
+    Parameters:
+        i -- cook id, integer
+        shared -- shared data, class Shared
+    """
+    sleep(randint(1, 8) * SLEEP_CONSTANT)
     shared.servings += 1
-    print(f'🍲 Cook {i}: put portion in pot')
+    print(f'🍲 Cook {i}: put serving in pot')
 
 
 def savage(i: int, shared: Shared):
-    while True:
+    """
+    Implement behaviour of a savage.
 
+    All savages arrive. When everyone is ready, one savage
+    finds out the number of servings in the pot. If pot is
+    empty, savage wakes up the cooks. Cooks cook a full pot.
+    When pot is not empty, savage takes a serving. After
+    this, savage is free to eat his serving and other savages
+    are allowed to take their servings (again one at a time).
+
+    Uses Reusable barrier to wait for all savages to arrive.
+    Uses Mutex lock to ensure servings counter integrity and
+    mutual exclusion of savages.
+    Uses Event to signal that the pot is empty.
+
+    Parameters:
+        i -- savage id, integer
+        shared -- shared data, class Shared
+    """
+    while True:
+        # Reusable barrier: wait for all savages
         shared.barrier.wait1(i)
         shared.barrier.wait2(i)
 
+        # Mutex: savages take servings one savage at a time
         shared.savage_mutex.lock()
-        print(f'❓ Savage {i}: number of servings left in pot: {shared.servings}')
+        print(f'❓ Savage {i}: number of servings left in pot: '
+              f'{shared.servings}')
         if shared.servings == 0:
+            # Pot is empty: signal the cooks and wait for full pot
             print(f'⏰ Savage {i}: wakes up the cook\n')
             shared.emptyPot.signal()
             shared.fullPot.wait()
-
+        # Pot is not empty: savage takes serving
         get_serving_from_pot(i, shared)
         shared.savage_mutex.unlock()
 
-        feast(i, shared)
+        # Savages eat their servings
+        feast(i)
 
 
 def cook(i: int, shared: Shared):
-    while True:
-        shared.cook_mutex.lock()
-        shared.emptyPot.wait()
-        shared.pot_mutex.lock()
-        if shared.servings >= POT_CAPACITY:
-            shared.pot_mutex.unlock()
-            shared.cook_mutex.unlock()
-            continue
+    """
+    Implement behaviour of a cook.
 
+    Cooks waits until the pot is empty (savages wake him up).
+    One cook prepares one serving at a time. The cook that
+    cooks the last serving signals to the savages that pot is
+    now full. He clears the Event of an empty pot, which
+    means other cooks will no longer try to cook, until the
+    savages eat all the servings again.
+
+    Uses mutex lock to ensure integrity of the servings counter,
+    as well as mutual exclusion of cooks.
+
+    Parameters:
+        i -- cook id, integer
+        shared -- shared data, class Shared
+    """
+    while True:
+        # Mutex: one cook enters
+        shared.cook_mutex.lock()
+        # Waits if empty pot Event is not started
+        shared.emptyPot.wait()
+        # Event is started, cooks a serving, puts it in the pot
         put_serving_in_pot(i, shared)
 
         if shared.servings >= POT_CAPACITY:
-            print(f'Cooks finished cooking: number of servings in pot:', shared.servings, '\n')
+            # Cook cooked the last serving, signal savages, clear Event
+            print(f'Cooks finished cooking: number of servings in pot:',
+                  shared.servings, '\n')
             shared.fullPot.signal()
             shared.emptyPot.clear()
-            shared.pot_mutex.unlock()
             shared.cook_mutex.unlock()
             continue
-        shared.pot_mutex.unlock()
         shared.cook_mutex.unlock()
-        sleep(0.01)  # force re-planning
+        sleep(0.01)     # encourage re-planning to a different cook
 
 
 def main():
