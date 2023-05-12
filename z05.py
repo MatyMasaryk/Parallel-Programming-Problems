@@ -13,6 +13,7 @@ from math import ceil
 
 IMAGE_DIR_PATH = "images"       # Input images should be stored in this dir
 OUTPUT_DIR_PATH = "output"      # Converted images will be stored to this dir
+MAX_IMAGES = 100                # Maximum number of converted images
 
 
 def grayscale_cpu(in_data: list, out_data: list, height: int, width: int):
@@ -92,12 +93,14 @@ def transform_images(use_gpu: bool):
         use_gpu -- True = use GPU, False = use CPU, boolean
     """
     exec_times = []
-    for filename in glob.iglob(f'{IMAGE_DIR_PATH}/*'):
+    for i, filename in enumerate(glob.iglob(f'{IMAGE_DIR_PATH}/*')):
         pixels = plt.imread(filename)
         new_pixels, runtime = transform_to_grayscale(pixels, use_gpu)
         exec_times.append(runtime)
         plt.imsave(filename.replace(IMAGE_DIR_PATH, OUTPUT_DIR_PATH),
                    new_pixels, format="jpg")
+        if i > MAX_IMAGES - 2:
+            break
 
     print(f"Using {'GPU' if use_gpu else 'CPU'} -> "
           f"Images converted: {len(exec_times)}, "
