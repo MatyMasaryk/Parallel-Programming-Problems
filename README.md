@@ -96,6 +96,8 @@ Formula:
 
     Y = 0.299*R + 0.587*G + 0.111*B
     
+Source: [https://e2eml.school/](https://e2eml.school/convert_rgb_to_grayscale.html)
+    
 ## Testing
 
 ### Image results
